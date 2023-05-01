@@ -1,6 +1,9 @@
 package com.bitwarden;
 
 import com.google.gson.Gson;
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.inject.Singleton;
@@ -14,6 +17,7 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @Singleton
+@Getter
 public class Bitwarden {
     // import com.fasterxml.jackson.databind.ObjectMapper; // version 2.11.1
 // import com.fasterxml.jackson.annotation.JsonProperty; // version 2.11.1
@@ -55,13 +59,32 @@ Root[] root = om.readValue(myJsonString, Root[].class); */
         public String uri;
     }
 
+    public static class Config {
+        @Expose
+        @SerializedName("email")
+        public String emailAddress;
+
+        @Expose
+        @SerializedName("token")
+        public String token;
+
+        Config(String token, String emailAddress){
+            this.token = token;
+            this.emailAddress = emailAddress;
+        }
+    }
+
 
     final private static String BW_LOGOUT_CMD = "bw logout";
+    final private static String BW_SYNC_CMD = "bw sync";
     final private static String BW_UNLOCK_VAULT_CMD = "bw unlock %s";
     final private static String BW_EMAIL_LOGIN_CMD = "bw login %s %s --method %d";
     final private static String BW_LIST_CMD = "bw list --search runescape items --session %s";
+
     private String masterPassword;
     private String sessionToken;
+
+    private String emailAddress;
 
     public class BitwardenFailedToExecCommand extends RuntimeException {
         public BitwardenFailedToExecCommand() {
@@ -144,6 +167,22 @@ Root[] root = om.readValue(myJsonString, Root[].class); */
         return new CmdResult(output.toString(), error.toString());
     }
 
+    public Config getConfig() {
+        if (!this.isLoggedIn()) {
+            throw new BitwardenNotLoggedInError();
+        }
+
+        return new Config(this.sessionToken, this.emailAddress);
+    }
+
+    public void sync() {
+        try {
+            execCmd(BW_SYNC_CMD);
+        } catch (IOException e) {
+            throw new BitwardenFailedToExecCommand();
+        }
+    }
+
     public void unlock(String password) {
         String unlockCMD = String.format(BW_UNLOCK_VAULT_CMD, password);
         CmdResult result = null;
@@ -172,6 +211,9 @@ Root[] root = om.readValue(myJsonString, Root[].class); */
 
         if (matcher.find()) {
             this.sessionToken = matcher.group(1);
+            Config config = this.getConfig();
+            Storage.saveCredentials(config);
+
             log.info(String.format("Token: %s, Master password: %s", this.sessionToken, this.masterPassword));
         } else {
             throw new BitwardenFailedToGetSessionTokenError();
@@ -200,6 +242,10 @@ Root[] root = om.readValue(myJsonString, Root[].class); */
         return Arrays.asList(gson.fromJson(jsonString, PasswordEntry[].class));
     }
 
+    public void setSessionToken(String sessionToken) {
+        this.sessionToken = sessionToken;
+    }
+
     public void login(String email, String password) {
         String loginCmd = String.format(BW_EMAIL_LOGIN_CMD, email, password, 1);
         log.info(loginCmd);
@@ -222,12 +268,14 @@ Root[] root = om.readValue(myJsonString, Root[].class); */
             }
         }
 
+        this.emailAddress = email;
         this.masterPassword = password;
+
         grabSessionToken(result.getStdout());
     }
 
     public boolean isLoggedIn() {
-        return this.sessionToken.length() > 0 && this.masterPassword.length() > 0;
+        return this.sessionToken.length() > 0;
     }
 
     public void logout() {
@@ -237,6 +285,7 @@ Root[] root = om.readValue(myJsonString, Root[].class); */
 
         try {
             execCmd(BW_LOGOUT_CMD);
+            Storage.clearCredentials();
         } catch (IOException e) {
             throw new BitwardenFailedToLogoutError();
         }

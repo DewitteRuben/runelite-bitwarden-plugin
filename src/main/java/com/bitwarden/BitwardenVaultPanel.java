@@ -7,6 +7,8 @@ import javax.inject.Inject;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
@@ -33,10 +35,8 @@ public class BitwardenVaultPanel extends PluginPanel {
         btnNewButton.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                mainPanel.removeAll();
-                mainPanel.add(new BitwardenVaultPanel(mainPanel, bitwardenAPI));
-                mainPanel.revalidate();
-                mainPanel.repaint();
+                bitwardenAPI.sync();
+                mainPanel.replacePanel(new BitwardenVaultPanel(mainPanel, bitwardenAPI));
             }
         });
 
@@ -51,11 +51,7 @@ public class BitwardenVaultPanel extends PluginPanel {
             @Override
             public void mouseClicked(MouseEvent e) {
                 bitwardenAPI.logout();
-
-                mainPanel.removeAll();
-                mainPanel.add(new BitwardenLoginPanel(mainPanel, bitwardenAPI));
-                mainPanel.revalidate();
-                mainPanel.repaint();
+                mainPanel.replacePanel(new BitwardenLoginPanel(mainPanel, bitwardenAPI));
             }
         });
 
@@ -88,19 +84,24 @@ public class BitwardenVaultPanel extends PluginPanel {
             gbc_lblNewLabel.gridy = startY;
             add(lblNewLabel, gbc_lblNewLabel);
 
-            textField = new JTextField();
-            textField.setEditable(false);
-            textField.setText(passwordEntry.login.password);
-            GridBagConstraints gbc_textField = new GridBagConstraints();
-            gbc_textField.gridwidth = 2;
-            gbc_textField.insets = new Insets(0, 0, 0, 5);
-            gbc_textField.fill = GridBagConstraints.HORIZONTAL;
-            gbc_textField.gridx = 0;
-            gbc_textField.gridy = startY + 1;
-            add(textField, gbc_textField);
-            textField.setColumns(10);
+            startY += 1;
 
-            startY += 10;
+            JButton btnCopy = new JButton("Copy");
+            btnCopy.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                    clipboard.setContents(new StringSelection(passwordEntry.login.password), null);
+                }
+            });
+
+            GridBagConstraints gbc_btnCopy = new GridBagConstraints();
+            gbc_btnCopy.insets = new Insets(0, 0, 5, 5);
+            gbc_btnCopy.gridx = 0;
+            gbc_btnCopy.gridy = startY;
+            add(btnCopy, gbc_btnCopy);
+
+            startY += 1;
         }
     }
 

@@ -27,7 +27,6 @@ package com.bitwarden;
 
 import java.awt.*;
 import java.awt.event.*;
-import javax.inject.Inject;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
@@ -39,12 +38,19 @@ import net.runelite.client.ui.PluginPanel;
 class BitwardenLoginPanel extends PluginPanel
 {
 
-    private final JTextField emailTextField;
-    private final JPasswordField passwordField;
+    private JTextField emailTextField;
+    private JPasswordField passwordField;
 
     BitwardenLoginPanel(BitwardenMainPanel mainPanel, Bitwarden bitwardenAPI)
     {
         super(false);
+
+        Bitwarden.Config credentials = Storage.loadCredentials();
+        if (credentials != null && credentials.token.length() > 0) {
+            bitwardenAPI.setSessionToken(credentials.token);
+            mainPanel.replacePanel(new BitwardenVaultPanel(mainPanel, bitwardenAPI));
+            return;
+        }
 
         setBackground(ColorScheme.DARK_GRAY_COLOR);
         setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -74,6 +80,10 @@ class BitwardenLoginPanel extends PluginPanel
         panel.add(lblNewLabel_1);
 
         emailTextField = new JTextField();
+        if (credentials != null && credentials.emailAddress.length() > 0) {
+            emailTextField.setText(credentials.emailAddress);
+        }
+
         panel.add(emailTextField);
         emailTextField.setColumns(10);
 
@@ -99,12 +109,12 @@ class BitwardenLoginPanel extends PluginPanel
                 String email = emailTextField.getText();
                 String password = new String(passwordField.getPassword());
 
-                bitwardenAPI.login(email, password);
-
-                mainPanel.removeAll();
-                mainPanel.add(new BitwardenVaultPanel(mainPanel, bitwardenAPI));
-                mainPanel.revalidate();
-                mainPanel.repaint();
+                try {
+                    bitwardenAPI.login(email, password);
+                    mainPanel.replacePanel(new BitwardenVaultPanel(mainPanel, bitwardenAPI));
+                } catch (Exception err) {
+                    log.warn("Error occurred while trying to login" + err);
+                }
             }
         });
         GridBagConstraints gbc_btnNewButton = new GridBagConstraints();

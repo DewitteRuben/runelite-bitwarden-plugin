@@ -28,10 +28,7 @@ public class BitwardenPlugin extends Plugin
 	@Inject
 	private Client client;
 
-	@Inject
-	private Provider<BitwardenMainPanel> mainPanel;
-
-	@Inject Provider<BitwardenVaultPanel> vaultPanel;
+	private BitwardenMainPanel mainPanel;
 
 	@Inject
 	private BitwardenConfig config;
@@ -46,12 +43,14 @@ public class BitwardenPlugin extends Plugin
 
 	@Override
 	protected void startUp() throws Exception {
-		final BufferedImage icon = ImageUtil.loadImageResource(SkillCalculatorPlugin.class, "calc.png");
+		final BufferedImage icon = Icon.BITWARDEN_LOGO.getImage();
+
+		mainPanel = injector.getInstance(BitwardenMainPanel.class);
 
 		uiNavigationButton = NavigationButton.builder()
 				.tooltip("Bitwarden plugin")
 				.icon(icon)
-				.panel(mainPanel.get())
+				.panel(mainPanel)
 				.build();
 
 		clientToolbar.addNavigation(uiNavigationButton);
